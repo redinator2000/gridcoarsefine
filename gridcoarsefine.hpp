@@ -6,6 +6,111 @@
 namespace gcf
 {
 
+template<typename R, typename T, T tag = 0>
+struct genericV2D_r
+{
+    using ntype = T;
+
+    ntype x;
+    ntype y;
+
+    constexpr genericV2D_r() noexcept = default;
+
+    constexpr genericV2D_r(ntype nx, ntype ny) noexcept
+    : x(nx), y(ny)
+    {}
+
+    [[nodiscard]] constexpr R operator+() const noexcept
+    {
+        return *this;
+    }
+
+    [[nodiscard]] constexpr R operator-() const noexcept
+    {
+        return genericV2D_r(-x, -y);
+    }
+
+    constexpr R operator+=(const genericV2D_r& b) noexcept
+    {
+        x += b.x;
+        y += b.y;
+        return *this;
+    }
+    constexpr R operator-=(const genericV2D_r& b) noexcept
+    {
+        x -= b.x;
+        y -= b.y;
+        return *this;
+    }
+    constexpr R operator*=(const ntype& b) noexcept
+    {
+        x *= b;
+        y *= b;
+        return *this;
+    }
+    constexpr R operator/=(const ntype& b) noexcept
+    {
+        x /= b;
+        y /= b;
+        return *this;
+    }
+
+    bool operator==(const genericV2D_r&) const noexcept = default;
+
+    friend constexpr R operator+(genericV2D_r a, const genericV2D_r& b) noexcept
+    {
+        a += b;
+        return a;
+    }
+    friend constexpr R operator-(genericV2D_r a, const genericV2D_r& b) noexcept
+    {
+        a -= b;
+        return a;
+    }
+    friend constexpr R operator*(genericV2D_r a, const ntype& b) noexcept
+    {
+        a *= b;
+        return a;
+    }
+    friend constexpr R operator*(const ntype& b, genericV2D_r a) noexcept
+    {
+        a *= b;
+        return a;
+    }
+    friend constexpr R operator/(genericV2D_r a, const ntype& b) noexcept
+    {
+        a /= b;
+        return a;
+    }
+};
+template<typename T, typename R, T tag>
+T cross(const genericV2D_r<R, T, tag> & a, const genericV2D_r<R, T, tag> & b)
+{
+    return a.x * b.y - a.y * b.x;
+};
+template<typename T, typename R, T tag>
+T dot(const genericV2D_r<R, T, tag> & a, const genericV2D_r<R, T, tag> & b)
+{
+    return a.x * b.x + a.y * b.y;
+};
+template<typename T, T tag = 0>
+struct genericV2D final : genericV2D_r<genericV2D<T, tag>, T, tag>
+{
+    using gV2Dr = genericV2D_r<genericV2D<T, tag>, T, tag>;
+    constexpr genericV2D(){};
+    constexpr genericV2D(T nx, T ny) :
+        gV2Dr(nx, ny)
+    {}
+    constexpr genericV2D(gV2Dr g) :
+        gV2Dr(g)
+    {}
+    template<typename R>
+    constexpr operator genericV2D_r<R, T, tag>() const
+    {
+        return genericV2D_r<R, T, tag>{this->x, this->y};
+    }
+};
+
 template <std::integral Tint>
 constexpr bool power_of_two(Tint b)
 {
@@ -43,19 +148,20 @@ constexpr Tint divPos_binary(Tint a)
 }
 
 template <std::integral Tint, Tint es> //es is the courseness of a grid, with 1 being the tiniest squares
-struct intV2D
+struct intV2D : public genericV2D_r<intV2D<Tint, es>, Tint, es>
 {
-    using es_type = Tint;
+    using gV2Dr = genericV2D_r<intV2D<Tint, es>, Tint, es>;
+    using itype = gV2Dr::ntype;
     static constexpr Tint es_value = es;
 
-    Tint x;
-    Tint y;
     constexpr intV2D(){};
-    constexpr intV2D(Tint newX, Tint newY)
-    {
-        x = newX;
-        y = newY;
-    }
+    constexpr intV2D(Tint nx, Tint ny) :
+        gV2Dr(nx, ny)
+    {}
+    constexpr intV2D(gV2Dr g) :
+        gV2Dr(g)
+    {}
+
     template <Tint oes>
         requires(oes != es &&
                  power_of_two(oes) && power_of_two(es))
@@ -63,13 +169,13 @@ struct intV2D
     {
         if(oes > es)
         {
-            x = v.x * oes / es;
-            y = v.y * oes / es;
+            this->x = v.x * oes / es;
+            this->y = v.y * oes / es;
         }
         else
         {
-            x = divPos_binary<es>(v.x * oes);
-            y = divPos_binary<es>(v.y * oes);
+            this->x = divPos_binary<es>(v.x * oes);
+            this->y = divPos_binary<es>(v.y * oes);
         }
     }
     template <Tint oes>
@@ -79,21 +185,21 @@ struct intV2D
     {
         if(oes > es)
         {
-            x = v.x * oes / es;
-            y = v.y * oes / es;
+            this->x = v.x * oes / es;
+            this->y = v.y * oes / es;
         }
         else
         {
-            x = divPos(v.x * oes, es);
-            y = divPos(v.y * oes, es);
+            this->x = divPos(v.x * oes, es);
+            this->y = divPos(v.y * oes, es);
         }
     }
     template <std::integral oTint>
         requires(sizeof(oTint) < sizeof(Tint)) //can only cast to bigger size
     constexpr intV2D(const intV2D<oTint, oTint(es)> & v)
     {
-        x = v.x;
-        y = v.y;
+        this->x = v.x;
+        this->y = v.y;
     }
     template <std::integral oTint>
     static constexpr intV2D trim_cast(const intV2D<oTint, es> & v)
@@ -119,35 +225,9 @@ struct intV2D
         auto shifted = intV2D<oTint, oTint(es)>(v);
         *this = trim_cast<oTint>(shifted);
     }
-    constexpr intV2D<Tint, es> operator+ (const intV2D<Tint, es> & b) const
-    {
-        return intV2D(x + b.x, y + b.y);
-    }
-    constexpr intV2D<Tint, es> operator- (const intV2D<Tint, es> & b) const
-    {
-        return intV2D(x - b.x, y - b.y);
-    }
-    constexpr void operator+= (const intV2D<Tint, es> & b)
-    {
-        x += b.x;
-        y += b.y;
-    }
-    constexpr void operator-= (const intV2D<Tint, es> & b)
-    {
-        x -= b.x;
-        y -= b.y;
-    }
-    constexpr intV2D<Tint, es> operator/ (const Tint & b) const
-    {
-        return intV2D(x / b, y / b);
-    }
-    constexpr intV2D<Tint, es> operator* (const Tint & b) const
-    {
-        return intV2D(x * b, y * b);
-    }
-    bool operator== (const intV2D &) const = default;
-};
 
+    // bool operator== (const intV2D &) const = default;
+};
 }
 
 /* example usage:
